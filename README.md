@@ -85,11 +85,19 @@ provider bills the entire input at the non-cached rate. That is precisely why
 the judge does not replay the conversation — it sends roughly a kilobyte, not a
 context window.
 
-`reasoningEffort` is left **unset** by default. Pinning it to `off` looks
-cheaper, but several routes positively reject `off` — workbuddy's
-`deepseek-v4.1-flash` sits in its `REFUSES_OFF_MODEL_IDS` set — and a refused
-effort fails the whole call. Set `judgeEffort` only for a route known to accept
-it.
+`reasoningEffort` is left **unset** by default, and that is deliberate rather
+than an oversight:
+
+- `off` is positively refused by several routes — workbuddy's
+  `deepseek-v4.1-flash` sits in its `REFUSES_OFF_MODEL_IDS` set — and a refused
+  effort fails the entire classification call.
+- A cheap-looking `low` is not portable either: a route advertising only `high`
+  (a single-tier free model, say) rejects it, and models that cannot disable
+  reasoning have nothing to lower.
+
+Sending no effort is the one form every route accepts. The answer is a single
+word, so the route's own default costs little. Set `judgeEffort` only for a
+route you have verified accepts that exact level.
 
 To change the cost profile, point `model` at a cheaper model. Note that the
 provider's prefix cache is per model, so a cross-model judge pays full price for
@@ -127,7 +135,7 @@ plugin's own output back.
 
 Every failure path calls `next()` untouched. The host closes the turn when a
 middleware throws, so a judge outage degrades to "no opinion" rather than to a
-broken conversation. A classification timeout (`timeoutMs`, default 20s) leaves
+broken conversation. A classification timeout (`timeoutMs`, default 45s) leaves
 the host level standing.
 
 ## Install
@@ -169,7 +177,7 @@ restart before expecting the plugin to appear.
     maxJudgeChars: 8000    # how much request text the judge sees (the tail)
     historyReplyChars: 0   # 0 = previous exchange uncapped; >0 caps each half
     historyToolWindow: 8   # recent tool names to include (0 disables)
-    timeoutMs: 20000       # abort a stuck classification call
+    timeoutMs: 45000       # abort a stuck classification call
     logFile: (unset)       # append one line per judgement to this path
 ```
 

@@ -41,7 +41,7 @@
 #                        agent's own, which is what keeps it cache-friendly
 #   maxJudgeChars 8000   how much of the turn's request text the judge sees
 #                        (the tail, where the actual request sits)
-#   timeoutMs    20000   abort a stuck classification call; on expiry the host
+#   timeoutMs    45000   abort a stuck classification call; on expiry the host
 #                        level stands
 #
 # ## What it refuses to send
@@ -62,4 +62,4 @@
         enabled: true
         fallback: high
         maxJudgeChars: 8000
-        timeoutMs: 20000
+        timeoutMs: 45000
