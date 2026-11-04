@@ -43,7 +43,11 @@ your turn
                          later steps of the same turn reuse it
 ```
 
-A 20-step turn pays for **exactly one** classification call.
+A 20-step turn pays for **exactly one** classification call, and that call
+never delays the start of the turn: step 1 keeps the host's current level (the
+previous turn's ending level — a locality prior) while the classification runs
+in the background, and the result is applied from step 2 onward. A judgement
+that has not resolved yet, or that fails, simply leaves the host level alone.
 
 ### Why two hooks
 
@@ -207,12 +211,12 @@ reasons.
 node --test test/index.test.js
 ```
 
-33 tests cover the tier parser (noise tolerance, aliases, ambiguous answers),
-the tier-to-wire mapping (each provider vocabulary, no-strength routes), prompt
-assembly, the
-bounded history reader (exchange pairs, tool window, non-human user-role
-messages), completion reading (adapter failure surfaced, `max-tokens` accepted),
-and truncation.
+40 tests cover the tier parser (noise tolerance, aliases, ambiguous answers),
+the async hand-off (step 1 keeps the host level, step 2 applies, once per turn,
+stale slots ignored), the tier-to-wire mapping (each provider vocabulary,
+no-strength routes), prompt assembly, the bounded history reader (exchange
+pairs, tool window, non-human user-role messages), completion reading (adapter
+failure surfaced, `max-tokens` accepted), and truncation.
 
 ## Requirements
 

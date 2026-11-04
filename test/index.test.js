@@ -8,6 +8,7 @@ import {
   readCompletion,
   readHistory,
   resolveEffort,
+  shouldInject,
   truncate,
 } from '../lib/index.js'
 
@@ -197,12 +198,20 @@ test('assemblePrompt handles a half-known exchange', () => {
   assert.match(onlyRequest, /Previous exchange:\nuser: 做事/u)
 })
 
-test('truncate caps only when given a positive limit', () => {
-  assert.equal(truncate('abcdef', 3), 'abc…')
+test('truncate keeps the tail when capping', () => {
+  // The instruction sits at the end of a long request, so the tail must survive.
+  assert.equal(truncate('abcdef', 3), '…def')
   assert.equal(truncate('abcdef', 10), 'abcdef')
   assert.equal(truncate('abcdef', 0), 'abcdef')
   assert.equal(truncate('abcdef', -1), 'abcdef')
   assert.equal(truncate(undefined, 5), '')
+})
+
+test('truncate preserves a trailing instruction', () => {
+  const text = '背景'.repeat(1000) + '请重构鉴权模块'
+  const out = truncate(text, 50)
+  assert.ok(out.endsWith('请重构鉴权模块'))
+  assert.ok(out.startsWith('…'))
 })
 
 test('assemblePrompt deduplicates tools but keeps their order', () => {
@@ -282,4 +291,35 @@ test('readHistory skips malformed records instead of throwing', () => {
     ],
   }
   assert.deepEqual(readHistory(session), { previousRequest: '', previousReply: '', tools: ['grep'] })
+})
+
+test('shouldInject keeps step 1 on the host level', () => {
+  // Locality prior: step 1 uses whatever the previous turn ended at.
+  const slot = { turn: 5, level: 'low', applied: false }
+  assert.equal(shouldInject(slot, { turn: 5, step: 1 }), false)
+})
+
+test('shouldInject applies a resolved judgement at step 2', () => {
+  const slot = { turn: 5, level: 'high', applied: false }
+  assert.equal(shouldInject(slot, { turn: 5, step: 2 }), true)
+})
+
+test('shouldInject is a no-op until the async result arrives', () => {
+  const slot = { turn: 5, level: undefined, applied: false }
+  assert.equal(shouldInject(slot, { turn: 5, step: 2 }), false)
+})
+
+test('shouldInject applies at most once per turn', () => {
+  const slot = { turn: 5, level: 'high', applied: true }
+  assert.equal(shouldInject(slot, { turn: 5, step: 3 }), false)
+})
+
+test('shouldInject ignores a stale slot from a previous turn', () => {
+  // A late resolution must not leak into the next turn.
+  const slot = { turn: 4, level: 'high', applied: false }
+  assert.equal(shouldInject(slot, { turn: 5, step: 2 }), false)
+})
+
+test('shouldInject ignores a missing slot', () => {
+  assert.equal(shouldInject(undefined, { turn: 5, step: 2 }), false)
 })
