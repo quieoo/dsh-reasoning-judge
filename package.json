@@ -1,0 +1,57 @@
+{
+  "name": "dsh-reasoning-judge",
+  "version": "0.1.0",
+  "description": "Ask the model how hard each turn is, once per turn, and set the thinking level from that judgement instead of from tool-call history.",
+  "type": "module",
+  "main": "lib/index.js",
+  "exports": {
+    ".": "./lib/index.js",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "lib/**/*.js",
+    "cordis.patch.yml",
+    "dsh.plugin.json",
+    "README.md",
+    "CHANGELOG.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "test": "node --test test/index.test.js"
+  },
+  "license": "MIT",
+  "keywords": [
+    "cordis",
+    "deepseek-harness",
+    "dsh",
+    "dsh-plugin",
+    "plugin",
+    "reasoning-effort",
+    "thinking-level",
+    "reasoning",
+    "agent-request",
+    "agent-pre-step",
+    "llm",
+    "budget"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/YOUR-NAME/dsh-reasoning-judge.git"
+  },
+  "bugs": {
+    "url": "https://github.com/YOUR-NAME/dsh-reasoning-judge/issues"
+  },
+  "homepage": "https://github.com/YOUR-NAME/dsh-reasoning-judge#readme",
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    }
+  },
+  "peerDependencies": {
+    "@deepseek-ai/cordis": "^4.0.2",
+    "@deepseek-ai/dsh-llm": ">=0.1.0-rc.6 <0.3.0"
+  },
+  "engines": {
+    "node": "^22.19 || >=24"
+  }
+}

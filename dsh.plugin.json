@@ -1,0 +1,13 @@
+{
+  "id": "dsh-reasoning-judge",
+  "version": "0.1.0",
+  "main": "./lib/index.js",
+  "description": "Ask the model how hard each turn is, once per turn, and set the thinking level from that judgement instead of from tool-call history.",
+  "engines": {
+    "dsh": "0.2.0-rc.1 || 0.2.0-rc.2 || 0.2.1-rc.1 || 0.2.1-rc.2 || 0.2.1-rc.3 || 0.2.1-rc.4 || 0.2.1-rc.5 || 0.2.1"
+  },
+  "contributes": {
+    "tools": [],
+    "skills": []
+  }
+}

@@ -1,0 +1,65 @@
+# The dsh-reasoning-judge bundle patch: mount the judge and go.
+#
+# ## What it changes
+#
+# `dsh-thinking-levels` schedules the thinking level from the last eight
+# `tool/call` events. That is a rear-view mirror, and it has two measurable
+# consequences:
+#
+#   - a turn's first step has no tool history, so every turn opens at `low`;
+#   - a small `edit` or a `grep` counts as a simple tool, so a hard refactor
+#     made of small edits never lifts the simple-tool ratio out of `low`.
+#
+# On a measured 27-step turn it stayed at `low` for 23 steps and only reached
+# `high` at step 24. Judging the *request* instead of the *operations* fixes
+# that, because "restructure this module" and "what does this function do" are
+# both cheap to type and only one of them is cheap to answer.
+#
+# This plugin asks the model once per turn — at `agent/pre-step`, where the
+# turn's user messages are readable — and applies the answer at
+# `agent/request`. Later steps of the same turn reuse the same judgement, so a
+# 20-step turn pays for exactly one classification call.
+#
+# ## Cost
+#
+# The classification call reuses the agent's own provider and model, so it
+# shares the conversation's prompt prefix and mostly lands on cache hits. It
+# runs with reasoning off (the answer is one word) because reasoning tokens are
+# billed at the output rate. If you would rather not pay it at all, point
+# `model` at a cheaper model — the tradeoff is that the prefix is cached per
+# model, so a cross-model judge pays full price for its input.
+#
+# ## Configuring
+#
+# Override the `config` block below. The values here are the defaults.
+#
+#   enabled      true    mount the judge; false unmounts both listeners
+#   fallback     high    level used when the answer is unusable; `high` is the
+#                        official hub, so a parse failure matches the host
+#                        default instead of silently degrading or over-spending
+#   model        (agent) model id for the classification call; defaults to the
+#                        agent's own, which is what keeps it cache-friendly
+#   maxJudgeChars 8000   how much of the turn's request text the judge sees
+#                        (the tail, where the actual request sits)
+#   timeoutMs    20000   abort a stuck classification call; on expiry the host
+#                        level stands
+#
+# ## What it refuses to send
+#
+# Only `low`, `high` and `max`, because an adapter rejects any level it does not
+# advertise with `UNSUPPORTED_REASONING_EFFORT`. The judgement is clamped to the
+# route's advertised levels, and a route that advertises none receives no
+# `reasoningEffort` at all.
+#
+# Every failure path calls `next()` untouched. The host ends the turn when a
+# middleware throws, so a judge outage must degrade to "no opinion", never to a
+# broken conversation.
+
+- insert:
+    - id: reasoning-judge
+      name: dsh-reasoning-judge
+      config:
+        enabled: true
+        fallback: high
+        maxJudgeChars: 8000
+        timeoutMs: 20000
