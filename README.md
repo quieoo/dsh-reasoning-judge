@@ -116,13 +116,29 @@ the host level standing.
 
 ## Install
 
+From GitHub (no npm publish required):
+
 ```sh
 cd ~/.dsh/profiles/web
-dsh plugin --profile web add dsh-reasoning-judge -w
+dsh plugin --profile web add https://github.com/quieoo/dsh-reasoning-judge.git -w
 dsh web   # restart; new bundle layers do not hot-load
 ```
 
-From a source checkout, add the directory path instead of the package name.
+From a local checkout:
+
+```sh
+dsh plugin --profile web add /path/to/dsh-reasoning-judge -w
+```
+
+From npm, once published:
+
+```sh
+dsh plugin --profile web add dsh-reasoning-judge -w
+```
+
+The `-w` flag matters: a profile is a pnpm workspace root, so installing
+without it is rejected. A running instance does not hot-load new bundle layers —
+restart before expecting the plugin to appear.
 
 ## Configuration
 

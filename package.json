@@ -36,12 +36,12 @@
   ],
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/YOUR-NAME/dsh-reasoning-judge.git"
+    "url": "git+https://github.com/quieoo/dsh-reasoning-judge.git"
   },
   "bugs": {
-    "url": "https://github.com/YOUR-NAME/dsh-reasoning-judge/issues"
+    "url": "https://github.com/quieoo/dsh-reasoning-judge/issues"
   },
-  "homepage": "https://github.com/YOUR-NAME/dsh-reasoning-judge#readme",
+  "homepage": "https://github.com/quieoo/dsh-reasoning-judge#readme",
   "dsh": {
     "bundle": {
       "patch": "./cordis.patch.yml"
