@@ -1,67 +1,86 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 import {
-  LEVELS,
+  TIERS,
   assemblePrompt,
-  clampLevel,
   chooseLevel,
   judgePrompt,
   readCompletion,
   readHistory,
+  resolveEffort,
   truncate,
 } from '../lib/index.js'
 
-test('chooseLevel reads a bare level', () => {
+test('chooseLevel reads the tier vocabulary', () => {
   assert.equal(chooseLevel('low'), 'low')
+  assert.equal(chooseLevel('medium'), 'medium')
   assert.equal(chooseLevel('high'), 'high')
-  assert.equal(chooseLevel('max'), 'max')
+})
+
+test('chooseLevel accepts wire names a model may echo back', () => {
+  // Providers disagree on the strongest name, so both must land on the top tier.
+  assert.equal(chooseLevel('max'), 'high')
+  assert.equal(chooseLevel('xhigh'), 'high')
+  assert.equal(chooseLevel('minimal'), 'low')
 })
 
 test('chooseLevel tolerates noise around one level', () => {
   assert.equal(chooseLevel('  HIGH.\n'), 'high')
-  assert.equal(chooseLevel('`max`'), 'max')
-  assert.equal(chooseLevel('I would say high here.'), 'high')
+  assert.equal(chooseLevel('`max`'), 'high')
+  assert.equal(chooseLevel('I would say medium here.'), 'medium')
   assert.equal(chooseLevel('**low**'), 'low')
 })
 
 test('chooseLevel falls back when no level is named', () => {
-  assert.equal(chooseLevel(''), 'high')
-  assert.equal(chooseLevel('unclear'), 'high')
-  assert.equal(chooseLevel(undefined), 'high')
+  assert.equal(chooseLevel(''), 'medium')
+  assert.equal(chooseLevel('unclear'), 'medium')
+  assert.equal(chooseLevel(undefined), 'medium')
   assert.equal(chooseLevel(null, 'low'), 'low')
 })
 
-test('chooseLevel refuses an ambiguous answer naming two levels', () => {
+test('chooseLevel refuses an ambiguous answer naming two tiers', () => {
   // A judge that hedges gave no judgement; picking one arbitrarily would be a
   // guess dressed up as a decision.
-  assert.equal(chooseLevel('low or high'), 'high')
-  assert.equal(chooseLevel('high or max', 'low'), 'low')
+  assert.equal(chooseLevel('low or high'), 'medium')
+  assert.equal(chooseLevel('low or medium', 'high'), 'high')
+})
+
+test('chooseLevel treats two aliases of the same tier as one answer', () => {
+  // `high` and `max` both mean the top tier, so this is not a hedge.
+  assert.equal(chooseLevel('high or max'), 'high')
 })
 
 test('chooseLevel ignores an invalid fallback', () => {
-  assert.equal(chooseLevel('nonsense', 'medium'), 'high')
+  assert.equal(chooseLevel('nonsense', 'xhigh'), 'medium')
 })
 
-test('clampLevel passes through an advertised level', () => {
-  assert.equal(clampLevel('max', ['off', 'low', 'high', 'max']), 'max')
-  assert.equal(clampLevel('high', ['low', 'high']), 'high')
+test('resolveEffort maps the top tier onto each provider vocabulary', () => {
+  // The same model family: workbuddy calls the top level `max`, trae `xhigh`.
+  // Judging in wire names capped trae at `high`, so the top tier was unreachable.
+  assert.equal(resolveEffort('high', ['low', 'high', 'max']), 'max')
+  assert.equal(resolveEffort('high', ['low', 'high', 'xhigh']), 'xhigh')
 })
 
-test('clampLevel clamps down to the strongest advertised level', () => {
-  // A model offering only low/high must not be sent max.
-  assert.equal(clampLevel('max', ['off', 'low', 'high']), 'high')
-  assert.equal(clampLevel('high', ['off', 'low']), 'low')
+test('resolveEffort maps the bottom tier onto the weakest advertised level', () => {
+  assert.equal(resolveEffort('low', ['low', 'high', 'max']), 'low')
+  assert.equal(resolveEffort('low', ['minimal', 'low', 'high']), 'minimal')
 })
 
-test('clampLevel lifts a level the model does not advertise below', () => {
-  // Asking for `low` from a model whose floor is `high` still has to name a
-  // level it accepts.
-  assert.equal(clampLevel('low', ['high', 'max']), 'high')
+test('resolveEffort keeps the middle tier on the route hub', () => {
+  assert.equal(resolveEffort('medium', ['low', 'high', 'max']), 'high')
+  assert.equal(resolveEffort('medium', ['low', 'high', 'xhigh']), 'high')
 })
 
-test('clampLevel yields nothing for a model advertising no levels', () => {
-  assert.equal(clampLevel('high', []), undefined)
-  assert.equal(clampLevel('high', undefined), undefined)
+test('resolveEffort picks a mid level when the hub name is absent', () => {
+  // A vocabulary without `high`: the middle of what is advertised stands in.
+  assert.equal(resolveEffort('medium', ['minimal', 'low', 'medium', 'max']), 'medium')
+})
+
+test('resolveEffort yields nothing for a route with no strength levels', () => {
+  assert.equal(resolveEffort('high', []), undefined)
+  assert.equal(resolveEffort('high', undefined), undefined)
+  // Toggle-only models advertise on/off and have no strength to set.
+  assert.equal(resolveEffort('high', ['off', 'on']), undefined)
 })
 
 test('judgePrompt reads only the human message, not injected context', () => {
@@ -147,8 +166,9 @@ test('readCompletion keeps the word from a max-tokens cut-off', async () => {
   assert.equal(await readCompletion(stream()), 'high')
 })
 
-test('LEVELS stays the three the adapters share', () => {
-  assert.deepEqual(LEVELS, ['low', 'high', 'max'])
+test('TIERS stays provider-neutral', () => {
+  // Abstract on purpose: any wire name here would cap a provider that lacks it.
+  assert.deepEqual(TIERS, ['low', 'medium', 'high'])
 })
 
 test('assemblePrompt carries the request alone when there is no context', () => {

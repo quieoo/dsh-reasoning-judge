@@ -91,12 +91,24 @@ To change the cost profile, point `model` at a cheaper model. Note that the
 provider's prefix cache is per model, so a cross-model judge pays full price for
 its input.
 
-## What it will not send
+## Provider-neutral tiers
 
-Only `low`, `high` and `max`. An adapter rejects any level it does not
-advertise with `UNSUPPORTED_REASONING_EFFORT`, so the judgement is clamped to
-the route's advertised levels; a route advertising none receives no
-`reasoningEffort` at all.
+The judge answers in **tiers** — `low`, `medium`, `high` — never in wire level
+names. Providers disagree on the strongest name for the same model family:
+
+| Route | Advertised levels | `high` tier resolves to |
+|---|---|---|
+| workbuddy `deepseek-v4.1-flash` | `low` / `high` / `max` | `max` |
+| trae `deepseek-v4.1-flash` | `low` / `high` / `xhigh` | `xhigh` |
+
+Judging in wire names silently capped every provider lacking the emitted name:
+on trae a judged `max` resolved to `high`, so the top tier was unreachable and
+the plugin looked like it only ever picked `low`–`high`.
+
+`resolveEffort` translates the tier by rank into whatever the route advertises.
+A route advertising nothing receives no `reasoningEffort` at all; one
+advertising only toggle levels (`on`/`off`) has no strength to set and is
+likewise left alone.
 
 ## Manual selection wins
 
@@ -147,7 +159,7 @@ restart before expecting the plugin to appear.
   name: dsh-reasoning-judge
   config:
     enabled: true          # false unmounts both listeners
-    fallback: high         # level used when the answer is unusable
+    fallback: medium       # tier used when the answer is unusable
     model: (agent's own)   # model id for the classification call
     judgeEffort: (unset)   # explicit effort for the judge; unset = route default
     maxJudgeChars: 8000    # how much request text the judge sees (the tail)
@@ -157,9 +169,10 @@ restart before expecting the plugin to appear.
     logFile: (unset)       # append one line per judgement to this path
 ```
 
-`fallback` defaults to `high` — the official hub — so a parse failure matches
-the host default instead of silently degrading to `low` or over-spending at
-`max`.
+`fallback` defaults to `medium`, which maps onto each route's own hub (`high`
+in both DeepSeek wire families) — so a parse failure lands mid-range instead of
+silently degrading to the weakest level or claiming a top tier the route may
+not have.
 
 ### Observability
 
@@ -194,8 +207,9 @@ reasons.
 node --test test/index.test.js
 ```
 
-30 tests cover the level parser (noise tolerance, ambiguous answers), the
-capability clamp (both directions, no-advertised-levels), prompt assembly, the
+33 tests cover the tier parser (noise tolerance, aliases, ambiguous answers),
+the tier-to-wire mapping (each provider vocabulary, no-strength routes), prompt
+assembly, the
 bounded history reader (exchange pairs, tool window, non-human user-role
 messages), completion reading (adapter failure surfaced, `max-tokens` accepted),
 and truncation.
