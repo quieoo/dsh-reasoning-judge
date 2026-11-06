@@ -8,7 +8,7 @@ import {
   readCompletion,
   readHistory,
   resolveEffort,
-  shouldInject,
+  shouldApply,
   truncate,
 } from '../lib/index.js'
 
@@ -293,33 +293,30 @@ test('readHistory skips malformed records instead of throwing', () => {
   assert.deepEqual(readHistory(session), { previousRequest: '', previousReply: '', tools: ['grep'] })
 })
 
-test('shouldInject keeps step 1 on the host level', () => {
-  // Locality prior: step 1 uses whatever the previous turn ended at.
+test('shouldApply leaves step 1 to the host level', () => {
+  // Locality prior: step 1 uses whatever the previous turn ended at. The
+  // resolved judgement is recorded from a later step's preparation, which the
+  // host applies to the step after it.
   const slot = { turn: 5, level: 'low', applied: false }
-  assert.equal(shouldInject(slot, { turn: 5, step: 1 }), false)
+  assert.equal(shouldApply(slot, 5), true, 'the slot is ready as soon as it resolved')
 })
 
-test('shouldInject applies a resolved judgement at step 2', () => {
-  const slot = { turn: 5, level: 'high', applied: false }
-  assert.equal(shouldInject(slot, { turn: 5, step: 2 }), true)
-})
-
-test('shouldInject is a no-op until the async result arrives', () => {
+test('shouldApply is a no-op until the async result arrives', () => {
   const slot = { turn: 5, level: undefined, applied: false }
-  assert.equal(shouldInject(slot, { turn: 5, step: 2 }), false)
+  assert.equal(shouldApply(slot, 5), false)
 })
 
-test('shouldInject applies at most once per turn', () => {
+test('shouldApply records at most once per turn', () => {
   const slot = { turn: 5, level: 'high', applied: true }
-  assert.equal(shouldInject(slot, { turn: 5, step: 3 }), false)
+  assert.equal(shouldApply(slot, 5), false)
 })
 
-test('shouldInject ignores a stale slot from a previous turn', () => {
+test('shouldApply ignores a stale slot from a previous turn', () => {
   // A late resolution must not leak into the next turn.
   const slot = { turn: 4, level: 'high', applied: false }
-  assert.equal(shouldInject(slot, { turn: 5, step: 2 }), false)
+  assert.equal(shouldApply(slot, 5), false)
 })
 
-test('shouldInject ignores a missing slot', () => {
-  assert.equal(shouldInject(undefined, { turn: 5, step: 2 }), false)
+test('shouldApply ignores a missing slot', () => {
+  assert.equal(shouldApply(undefined, 5), false)
 })

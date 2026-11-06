@@ -36,11 +36,9 @@ Judge the **request**, not the operations.
 ```
 your turn
    │
-   ├─ agent/pre-step ──► read the request + previous exchange + recent tools
-   │                     ask the model: low, high, or max?
-   │
-   └─ agent/request  ──► inject that level for step 1
-                         later steps of the same turn reuse it
+   └─ agent/pre-step ──► step 1: read the request + previous exchange + recent
+                         tools, ask the model: low, high, or max?
+                         later steps: hand the answer to agent.model.select()
 ```
 
 A 20-step turn pays for **exactly one** classification call, and that call
@@ -49,13 +47,27 @@ previous turn's ending level — a locality prior) while the classification runs
 in the background, and the result is applied from step 2 onward. A judgement
 that has not resolved yet, or that fails, simply leaves the host level alone.
 
-### Why two hooks
+### Why `agent.model.select()` and not `agent/request`
 
-`agent/request` fires after `step/start`, and the loop's own documentation
-states that neither it nor `prepareCall()` sees the pending accepted users
-committed to history — the turn's request is *not readable there*.
-`agent/pre-step` does receive `messages`, so the judgement happens there and
-`agent/request` only consumes the result.
+Up to dsh 0.2.1 the level was returned from `agent/request`. Since 0.2.2 the
+loop captures its selection *before* dispatching `agent/pre-step`, so a
+request-time listener that proposes a different effort is rejected outright:
+
+```
+agent/request proposed reasoning effort "high" after step preparation fixed
+"adapter default"; use agent.model.select() before step preparation
+```
+
+That error ends the turn rather than ignoring the override, so the plugin no
+longer listens on `agent/request` at all. The judgement is recorded from
+`agent/pre-step` with `agent.model.select()`, which the host applies to the
+**following** step preparation. The observable timing is unchanged: step 1
+keeps the host level while the classification runs, and the judged level is in
+force from step 2 onward.
+
+`agent/pre-step` is also the only hook that receives the turn's `messages` — the
+request is *not readable* from `agent/request`, whose own documentation says it
+sees neither the pending users nor anything `prepareCall()` resolves.
 
 ## What the judge sees
 
@@ -204,14 +216,10 @@ evidence the plugin is inactive**, and confusing the two is easy.
 
 ## Interaction with dsh-thinking-levels
 
-Both listen on `agent/request`. This plugin uses `prepend` and returns early on
-every step except the first. Within a turn: the judge owns step 1, and
-thinking-levels' history-driven schedule can keep serving later steps if it also
-declares `prepend` and runs after this one.
-
-For a single owner, pick a fixed level in the model selector or disable
-thinking-levels, as the two otherwise make the same decision for different
-reasons.
+`dsh-thinking-levels` still injects through `agent/request`, so on dsh 0.2.2 and
+later it is refused at startup (`engines.dsh` does not admit the runtime) and,
+even if force-exempted, its override would trigger the rejection quoted above.
+This plugin supersedes it: run one or the other, and on 0.2.2+ prefer this one.
 
 ## Tests
 
